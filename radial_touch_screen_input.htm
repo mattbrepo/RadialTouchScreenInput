@@ -1,0 +1,208 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <script type="text/javascript">
+            //costanti
+						var timer_interval = 300;
+            var limit_offset = 30;
+            var max_x = 500;
+            var max_y = 400;
+            var start_x = max_x / 2;
+            var start_y = max_y / 2;
+            var mydebug = false;
+            var valore = 10;
+            var managed = false;
+            
+            var oldValore;
+            var mouseDown = false;
+            var tmout;
+            var onTimer = false;
+            var mousePosAbs;
+            var mousePosRel;
+
+            window.onload = function () {
+                //init
+                var canvas = document.getElementById('myCanvas');
+                mouseUpHandler();
+
+                canvas.addEventListener('mousemove', function (evt) {
+                    if (!mouseDown) return;
+
+                    mousePosAbs = getMousePos(evt, canvas);
+                    mousePosRel = getMousePosRel(mousePosAbs);
+
+                    if (onTimer) {
+                        writeLineAndNumber();
+                        return;
+                    }
+
+                    onTimer = calcAndWrite(oldValore, false);
+
+                    //pro debug:
+                    if (mydebug) {
+                        var message = "Mouse position abs: " + mousePosAbs.x + "," + mousePosAbs.y;
+                        writeMessage(message, start_x, start_y + 60, false);
+                        message = "Mouse position rel: " + mousePosRel.x + "," + mousePosRel.y;
+                        writeMessage(message, start_x, start_y + 120, false);
+                    }
+                }, false);
+            };
+
+            function calcAndWrite(baseVal, fromTimeOut) {
+                if (fromTimeOut && !mouseDown) {
+                    clearTimeout(tmout);
+                    onTimer = false;
+                    return false;
+                }
+
+                var res = calcNewVal(mousePosRel, baseVal);
+                writeLineAndNumber();
+                if (res) {
+                    var delay = function () { calcAndWrite(valore, true); };
+										tmout = setTimeout(delay, timer_interval);
+                    return true;
+                }
+
+                clearTimeout(tmout);
+                onTimer = false;
+                return false;
+            }
+                    
+            function writeLineAndNumber() {
+                writeNumber();
+                writeLine(start_x, start_y, mousePosAbs.x, mousePosAbs.y, 'red');
+                writeElements();
+                managed = true;
+            }
+                                
+            function writeElements() {
+                //cartesiane
+                writeLine(start_x, 0, start_x, max_y, 'black');
+                writeLine(0, start_y, max_x, start_y, 'black');
+                
+                //rettangolo
+                writeLine(start_x - limit_offset, start_y - limit_offset, start_x + limit_offset, start_y - limit_offset, 'black');
+                writeLine(start_x + limit_offset, start_y - limit_offset, start_x + limit_offset, start_y + limit_offset, 'black');
+                writeLine(start_x + limit_offset, start_y + limit_offset, start_x - limit_offset, start_y + limit_offset, 'black');
+                writeLine(start_x - limit_offset, start_y + limit_offset, start_x - limit_offset, start_y - limit_offset, 'black');
+                
+                //legend
+                writeMessage("+0.1", 10, 30, false);
+                writeMessage("+1", max_x - 50, 30, false);
+                writeMessage("-0.1", 10, max_y - 30, false);
+                writeMessage("-1", max_x - 50, max_y - 30, false);
+            }
+                       
+            function writeNumber() {
+                var sValore = "" + valore;
+                var len = sValore.length;
+                writeMessage(sValore, start_x - (6 * len), start_y + 10, true);
+            }
+
+            function mouseUpHandler() {
+                mouseDown = false;
+                writeNumber();
+                oldValore = valore;
+                clearTimeout(tmout);
+                onTimer = false;
+            }
+
+            function mouseDownHandler() {
+                writeElements();
+                mouseDown = true;
+                managed = false;
+            }
+            
+            function clickHandler() {
+                if (!managed) {
+                  var valOutput = prompt('calc', valore);
+                  if (valOutput == null) return;
+                  valore = parseFloat(valOutput);
+                  oldValore = valore;
+                  writeNumber();
+                }
+            }
+
+            function calcNewVal(mousePosRel, baseVal) {
+                //fast/slow
+                var absx = Math.abs(mousePosRel.x);
+                var absy = Math.abs(mousePosRel.y);
+                if (absx < limit_offset || absy < limit_offset) {
+                    valore = oldValore;
+                    return false;
+                }
+
+                var offset = 0;
+                if (mousePosRel.x > 0) offset = 1;
+                else offset = 0.1;
+
+                if (mousePosRel.y > 0) offset = -1 * offset;
+
+                valore = baseVal + offset;
+                valore = roundNumber(valore, 2);
+                return true;
+            }
+
+            function roundNumber(num, dec) {
+            	var result = Math.round(num*Math.pow(10,dec))/Math.pow(10,dec);
+	            return result;
+            }
+
+            function getMousePosRel(mousePosAbs) {
+                var mouseX = mousePosAbs.x - start_x;
+                var mouseY = mousePosAbs.y - start_y;
+                return {
+                    x: mouseX,
+                    y: mouseY
+                };
+            }
+
+            function writeLine(x0, y0, x1, y1, color) {
+                var canvas = document.getElementById('myCanvas');
+                var context = canvas.getContext('2d');
+                context.lineWidth = 1;
+                context.strokeStyle = color;
+                context.beginPath();
+                context.moveTo(x0, y0);
+                context.lineTo(x1, y1);
+                context.stroke();
+            }
+
+            function writeMessage(message, mousex, mousey, doclear) {
+                var canvas = document.getElementById('myCanvas');
+                var context = canvas.getContext('2d');
+                if (doclear) context.clearRect(0, 0, canvas.width, canvas.height);
+                context.font = '22pt Calibri';
+                context.fillStyle = 'black';
+                context.fillText(message, mousex, mousey);
+            }
+
+            function getMousePos(evt, canvas) {
+                // get canvas position
+                var obj = canvas;
+                var top = 0;
+                var left = 0;
+                while (obj && obj.tagName != 'BODY') {
+                    top += obj.offsetTop;
+                    left += obj.offsetLeft;
+                    obj = obj.offsetParent;
+                }
+
+                // return relative mouse position
+                var mouseX = evt.clientX - left + window.pageXOffset;
+                var mouseY = evt.clientY - top + window.pageYOffset;
+                return {
+                    x: mouseX,
+                    y: mouseY
+                };
+            }
+        </script>
+    </head>
+    <style type="text/css">
+        canvas { border: 1px solid black; }</style>
+    </head>
+    <body>
+        <canvas id="myCanvas" width="500" height="400"  onClick="clickHandler()" onmousedown="mouseDownHandler()" onmouseup="mouseUpHandler()" onmouseout="mouseUpHandler()">
+        </canvas>
+    </body>
+</html>
